@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Autonomous Muse v3 — offline, interaktiv</title>
+<style>
+  :root{--bg:#06070a;--fg:#e6eef8;--panel:#0e1219;--accent:#9fd4ff;--muted:#8a97b5}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  header{display:flex;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid #202532}
+  header h1{font-size:16px;margin:0;color:#cfe3ff}
+  main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  .panel{background:var(--panel);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .controls label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+  .controls input[type="number"], .controls input[type="text"], .controls select{width:100%;padding:8px;border-radius:8px;border:1px solid #2a3142;background:#0b0f16;color:var(--fg)}
+  .row{display:grid;grid-template-columns:1fr 70px;gap:8px}
+  .btn{cursor:pointer;background:#1b2231;color:#eaf2ff;border:1px solid #2c364a;border-radius:10px;padding:8px 12px}
+  .btn:hover{background:#242e40}
+  .stack{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .badge{background:#1a2030;color:#a7b7d9;padding:4px 8px;border-radius:999px;font-size:12px;border:1px solid #2c364a}
+  .card{background:var(--panel);border-radius:12px;padding:12px;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+  .meta{color:#a3b4d2;font-size:12px;margin:6px 0 10px}
+  .svgwrap{border-radius:10px;overflow:hidden}
+  pre{white-space:pre-wrap;background:#0b0f16;border:1px solid #293245;padding:10px;border-radius:8px}
+  footer{color:#8aa0c8;opacity:.8;text-align:center;padding:14px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Autonomous Muse v3 — offline, interaktiv</h1>
+    <span class="badge">No libs</span>
+    <span class="badge">HTML+SVG</span>
+    <span class="badge">Seeded</span>
+  </header>
+  <main>
+    <section class="panel controls">
+      <label>Seed</label>
+      <div class="row">
+        <input id="seed" type="number" placeholder="auto" />
+        <button class="btn" id="randomize">zufällig</button>
+      </div>
+      <label>Ausgaben (Galerie)</label>
+      <input id="count" type="number" min="1" max="12" value="1" />
+      <label>Bildgröße (Breite×Höhe)</label>
+      <input id="size" type="text" value="1000x600" />
+      <label>Sprache</label>
+      <select id="lang">
+        <option value="mix">mix</option>
+        <option value="de">de</option>
+        <option value="en">en</option>
+      </select>
+      <label>Blur (stdDeviation)</label>
+      <input id="blur" type="number" min="0" max="20" step="0.5" value="8" />
+      <label>Grain (0..1 Alpha)</label>
+      <input id="grain" type="number" min="0" max="1" step="0.05" value="0.10" />
+
+      <div class="stack">
+        <button class="btn" id="generate">Generieren</button>
+        <button class="btn" id="exportAll">Alle als PNG speichern</button>
+      </div>
+      <p class="meta">Hinweis: PNG‑Export rendert die jeweilige SVG clientseitig auf eine Canvas.</p>
+    </section>
+
+    <section>
+      <div id="gallery" class="grid"></div>
+    </section>
+  </main>
+
+  <footer>Generated locally by Autonomous Muse v3 — ephemeral creative agent.</footer>
+
+<script>
+// ===== Random Helpers with seeds =====
+function mulberry32(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}};
+function seededShuffle(arr, rnd){for(let i=arr.length-1;i>0;i--){const j=Math.floor(rnd()* (i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr}
+function parseSize(s){const m=(s||'').toLowerCase().split('x');let w=1000,h=600; if(m.length===2){w=Math.max(300,parseInt(m[0]||1000));h=Math.max(200,parseInt(m[1]||600));} return {w,h}}
+function nowTag(){const d=new Date();const pad=n=>(''+n).padStart(2,'0');return d.getFullYear()+''+pad(d.getMonth()+1)+''+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())}
+
+// ===== Lexicon =====
+const ADJ_DE=["schlafwandlerisch","verzerrt","flüssig","verglühend","körnig","silbern","fragmentarisch","gründlich","seltsam freundlich","eifersüchtig"];
+const NOUN_DE=["Uhr","Kapsel","Fenster","Diskette","Muse","Kartographie","Nebula","Schreibe","Störsender","Leuchtring"];
+const VERB_DE=["flüstert","zerfällt","schwebt","dreht sich","trifft","gedeiht","versiegelt","glimmt","entschwindet","verwahrt"];
+const STYLE_DE=["berichtartig","lyrisch","lapidar","kalt beobachtend","intim flüsternd"];
+const ADJ_EN=["somnambulant","warped","liquid","incandescent","grainy","silvery","fragmentary","earnest","oddly kind","jealous"];
+const NOUN_EN=["clock","capsule","window","diskette","muse","cartography","nebula","scribe","jammer","halo"];
+const VERB_EN=["whispers","decays","floats","spins","collides","thrives","seals","glows","vanishes","keeps"];
+const STYLE_EN=["report-like","lyrical","terse","coldly observing","intimate, whispering"];
+const PALETTES=[["#0b0d11",["#8fb5ff","#a7c2ff","#ffffff","#222222"]],["#0b0d11",["#ffd48f","#ffe1b2","#ffffff","#222222"]],["#101018",["#9effb2","#c7ffd2","#ffffff","#222222"]],["#071017",["#ff9fd4","#ffc2e3","#ffffff","#222222"]]];
+
+function capDe(s){if(!s)return s; s=s.charAt(0).toUpperCase()+s.slice(1); for(const n of NOUN_DE){s=s.replace(" "+n.toLowerCase()+" "," "+n+" ")} return s}
+
+function manifest(lang,rnd){if(lang==='de'){const adj=ADJ_DE[Math.floor(rnd()*ADJ_DE.length)],noun=NOUN_DE[Math.floor(rnd()*NOUN_DE.length)],verb=VERB_DE[Math.floor(rnd()*VERB_DE.length)],style=STYLE_DE[Math.floor(rnd()*STYLE_DE.length)];let lines=[`Die Muse trinkt ${adj} Licht.`,`Projekt: '${noun}' — sie ${verb}.`,`Ton: ${style}.`]; if(rnd()<0.35)lines.push(["Bewahre, was bricht.","Zeichne nur die Schatten, nicht das Objekt.","Vertraue der Kante, nicht der Fläche."][Math.floor(rnd()*3)]);return lines.join("\n");}
+if(lang==='en'){const adj=ADJ_EN[Math.floor(rnd()*ADJ_EN.length)],noun=NOUN_EN[Math.floor(rnd()*NOUN_EN.length)],verb=VERB_EN[Math.floor(rnd()*VERB_EN.length)],style=STYLE_EN[Math.floor(rnd()*STYLE_EN.length)];let lines=[`The muse drinks ${adj} light.`,`Project: '${noun}' — it ${verb}.`,`Tone: ${style}.`]; if(rnd()<0.35)lines.push(["Keep what breaks.","Draw only the shadows, not the object.","Trust the edge more than the plane."][Math.floor(rnd()*3)]);return lines.join("\n");}
+let m=manifest('de',rnd).split('\n'); m.push(rnd()<.5?"Remember: leave a trace only in the periphery.":"Do not center the subject; center the field."); return m.join('\n')}
+function onePrompt(lang,rnd){if(lang==='de'){const a=ADJ_DE[Math.floor(rnd()*ADJ_DE.length)],n=NOUN_DE[Math.floor(rnd()*NOUN_DE.length)],v=VERB_DE[Math.floor(rnd()*VERB_DE.length)];return capDe(`${a} ${n}, die ${v} — am Rand einer Erinnerung.`)}
+if(lang==='en'){const a=ADJ_EN[Math.floor(rnd()*ADJ_EN.length)],n=NOUN_EN[Math.floor(rnd()*NOUN_EN.length)],v=VERB_EN[Math.floor(rnd()*VERB_EN.length)];return `${a} ${n} that ${v} at the edge of a memory.`}
+const a=ADJ_DE[Math.floor(rnd()*ADJ_DE.length)],n=NOUN_EN[Math.floor(rnd()*NOUN_EN.length)],v=VERB_EN[Math.floor(rnd()*VERB_EN.length)];return capDe(`${a} ${n} that ${v} at the edge of a memory.`)}
+function microStory(lang,rnd){if(lang==='de'){const n=NOUN_DE[Math.floor(rnd()*NOUN_DE.length)],v=VERB_DE[Math.floor(rnd()*VERB_DE.length)],a=ADJ_DE[Math.floor(rnd()*ADJ_DE.length)];const s1=`Am Rande des Labors stand eine ${n.toLowerCase()}, die ${v}.`;return rnd()<0.55?capDe(`${s1} Sie trug Spuren von ${a} Licht; niemand hatte sie je ganz verstanden.`):capDe(s1)}
+if(lang==='en'){const n=NOUN_EN[Math.floor(rnd()*NOUN_EN.length)],v=VERB_EN[Math.floor(rnd()*VERB_EN.length)],a=ADJ_EN[Math.floor(rnd()*ADJ_EN.length)];const s1=`At the edge of the lab stood a ${n}, it ${v}.`;return rnd()<0.55?`${s1} It carried traces of ${a} light; no one ever understood it entirely.`:s1}
+return microStory(rnd()<.5?'de':'en',rnd)}
+
+function svgComposition(w,h,rnd,blur,grain){const pal=PALETTES[Math.floor(rnd()*PALETTES.length)],bg=pal[0],accents=pal[1]; let shapes=""; const defs=`<defs>\n  <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${blur.toFixed(2)}"/></filter>\n  <filter id="grain" x="-50%" y="-50%" width="200%" height="200%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope="${grain.toFixed(3)}" intercept="0"/></feComponentTransfer></filter>\n</defs>`; const n=Math.floor(5+rnd()*5);
+ for(let i=0;i<n;i++){const typ=['ellipse','rect','ring','line','poly'][Math.floor(rnd()*5)]; const cx=(.15+rnd()*.7)*w, cy=(.15+rnd()*.7)*h, W=(.08+rnd()*.24)*w, H=(.06+rnd()*.22)*h, rot=(rnd()*72-36).toFixed(1), op=(.55+rnd()*.38).toFixed(2), hue=accents[Math.floor(rnd()*accents.length)], glow=rnd()<.75?" filter=\"url(#soft)\"":""; if(typ==='ellipse'){shapes+=`<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(W/2).toFixed(1)}" ry="${(H/2).toFixed(1)}" fill="${hue}" opacity="${op}" transform="rotate(${rot},${cx.toFixed(1)},${cy.toFixed(1)})"${glow}/>`}
+ else if(typ==='rect'){const x=cx-W/2,y=cy-H/2,r=Math.min(W,H)*.12; shapes+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${W.toFixed(1)}" height="${H.toFixed(1)}" rx="${r.toFixed(1)}" fill="${hue}" opacity="${op}" transform="rotate(${rot},${cx.toFixed(1)},${cy.toFixed(1)})"${glow}/>`}
+ else if(typ==='ring'){const sw=Math.max(5,Math.floor(Math.min(W,H)*.09)); shapes+=`<ellipse cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(W/2).toFixed(1)}" ry="${(H/2).toFixed(1)}" fill="none" stroke="${hue}" stroke-width="${sw}" opacity="${op}" transform="rotate(${rot},${cx.toFixed(1)},${cy.toFixed(1)})"${glow}/>`}
+ else if(typ==='line'){const x2=cx+Math.cos(parseFloat(rot)*Math.PI/180)*W*.6, y2=cy+Math.sin(parseFloat(rot)*Math.PI/180)*H*.6; shapes+=`<line x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${hue}" stroke-opacity="${op}" stroke-width="${Math.max(2,Math.floor(W*.02))}"${glow}/>`}
+ else{let pts="", seg=4+Math.floor(rnd()*4); for(let t=0;t<seg;t++){const ang=2*Math.PI*t/seg + (rnd()*.8-.4), R=(.35 + (rnd()*.3-.12))*Math.min(W,H), px=cx+Math.cos(ang)*R, py=cy+Math.sin(ang)*R; pts+=`${px.toFixed(1)},${py.toFixed(1)} `} shapes+=`<polygon points="${pts.trim()}" fill="${hue}" opacity="${op}" transform="rotate(${rot},${cx.toFixed(1)},${cy.toFixed(1)})"${glow}/>`}}
+ return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">\n  ${defs}\n  <rect x="0" y="0" width="${w}" height="${h}" fill="${bg}"/>\n  <g filter="url(#grain)"><rect x="0" y="0" width="${w}" height="${h}" fill="#000" opacity="0.04"/></g>\n  <g>${shapes}</g>\n  <text x="${w-20}" y="${h-10}" font-size="12" fill="#a9b4c9" text-anchor="end" opacity="0.7">Autonomous Muse • ${nowTag()}</text>\n</svg>`}
+
+function htmlBlock(tag,man,prompt,story,svg){return `<div class="card"><h3 style="margin:0">Ausgabe ${tag}</h3><div class="meta">Manifest · Prompt · Micro-Story</div><pre>${man}</pre><strong>Prompt:</strong><pre>${prompt}</pre><strong>Micro-Story:</strong><pre>${story}</pre><div class="svgwrap">${svg}</div></div>`}
+
+function generateAll(){const seedField=document.querySelector('#seed'); const seedVal=seedField.value?parseInt(seedField.value):Math.floor(Math.random()*2**31); seedField.value=seedVal; const rnd=mulberry32(seedVal); const {w,h}=parseSize(document.querySelector('#size').value); const count=Math.max(1,Math.min(12,parseInt(document.querySelector('#count').value||'1'))); const lang=document.querySelector('#lang').value; const blur=parseFloat(document.querySelector('#blur').value||'8'); const grain=parseFloat(document.querySelector('#grain').value||'0.1'); const wrap=document.querySelector('#gallery'); wrap.innerHTML=''; for(let i=0;i<count;i++){const tag=nowTag(); const man=manifest(lang,rnd); const pr=onePrompt(lang,rnd); const st=microStory(lang,rnd); const svg=svgComposition(w,h,rnd,blur,grain); wrap.insertAdjacentHTML('beforeend',htmlBlock(tag,escapeHtml(man),escapeHtml(pr),escapeHtml(st),svg))}}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
+
+async function exportAll(){const cards=[...document.querySelectorAll('.card')]; for(const card of cards){const svg = card.querySelector('svg'); if(!svg) continue; const w=svg.viewBox.baseVal.width||svg.width.baseVal.value; const h=svg.viewBox.baseVal.height||svg.height.baseVal.value; const blob=new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}); const url=URL.createObjectURL(blob); const img=new Image(); const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx=canvas.getContext('2d'); await new Promise(res=>{img.onload=()=>res(); img.src=url}); ctx.drawImage(img,0,0); URL.revokeObjectURL(url); const a=document.createElement('a'); a.download='muse_'+Date.now()+'.png'; a.href=canvas.toDataURL('image/png'); a.click() }}
+
+// UI
+document.querySelector('#generate').addEventListener('click',generateAll);
+document.querySelector('#exportAll').addEventListener('click',exportAll);
+document.querySelector('#randomize').addEventListener('click',()=>{document.querySelector('#seed').value=''; generateAll()});
+window.addEventListener('DOMContentLoaded',generateAll);
+</script>
+</body>
+</html>
